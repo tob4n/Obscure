@@ -1,6 +1,6 @@
 # Obscure
 
-A Paper plugin for Minecraft that dynamically hides player name tags when they're behind occluding blocks.
+A Paper plugin for Minecraft that dynamically hides player name tags when behind occluding blocks.
 
 ## Requirements
 
