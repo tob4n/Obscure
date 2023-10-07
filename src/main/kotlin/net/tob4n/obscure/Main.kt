@@ -1,20 +1,15 @@
 package net.tob4n.obscure
 
-import com.comphenix.protocol.ProtocolManager
-import org.bukkit.event.Listener
+import com.comphenix.protocol.ProtocolLibrary
 import org.bukkit.plugin.java.JavaPlugin
 
-class Main : JavaPlugin(), Listener {
-
-    private lateinit var protocolManager: ProtocolManager
+class Main : JavaPlugin() {
 
     override fun onEnable() {
-        NameManager(Main(), protocolManager)
-        server.pluginManager.registerEvents(this, this)
+        NameManager(this)
     }
 
     override fun onDisable() {
-        protocolManager.removePacketListeners(this)
+        ProtocolLibrary.getProtocolManager().removePacketListeners(this)
     }
-
 }

@@ -1,4 +1,6 @@
 name: Obscure
 author: tob4n
 version: 1.0.0
+api-version: 1.20
 main: net.tob4n.obscure.Main
+depend: [kotlin-stdlib, ProtocolLib]

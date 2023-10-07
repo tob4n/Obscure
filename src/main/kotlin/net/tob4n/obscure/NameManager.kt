@@ -1,98 +1,91 @@
 package net.tob4n.obscure
 
 import com.comphenix.protocol.PacketType
-import com.comphenix.protocol.ProtocolManager
+import com.comphenix.protocol.ProtocolLibrary
 import com.comphenix.protocol.events.PacketAdapter
+import com.comphenix.protocol.events.PacketContainer
 import com.comphenix.protocol.events.PacketEvent
-import com.comphenix.protocol.wrappers.WrappedDataWatcher
+import com.comphenix.protocol.utility.MinecraftReflection
+import java.util.*
+import net.tob4n.obscure.Algorithm.Companion.bresenham3D
+import org.bukkit.ChatColor
 import org.bukkit.entity.Player
-import org.bukkit.event.EventHandler
-import org.bukkit.event.player.PlayerMoveEvent
 
-class NameManager(private val plugin: Main, private val protocolManager: ProtocolManager) {
+class NameManager(private val plugin: Main) {
 
-    private val loadedPlayers = mutableMapOf<Player, MutableSet<Player>>()
-    private val hiddenPlayers = mutableMapOf<Player, MutableSet<Player>>()
-    private val playerIds: Map<Int, Player> = HashMap()
+    private val protocolManager = ProtocolLibrary.getProtocolManager()
+    private val loadedPlayerCache = mutableMapOf<UUID, HashSet<Player>>()
+    private val visiblePlayerCache = mutableMapOf<Pair<UUID, UUID>, Boolean>()
 
     init {
-
-        protocolManager.addPacketListener(
-            object : PacketAdapter(plugin, PacketType.Play.Server.NAMED_ENTITY_SPAWN) {
-                override fun onPacketSending(event: PacketEvent) {
-                    val entity = event.packet.getEntityModifier(event).read(0)
-                    if (entity is Player) {
-                        loadedPlayers.computeIfAbsent(event.player) { mutableSetOf() }.add(entity)
-                    }
-                }
-            }
-        )
-
-        protocolManager.addPacketListener(
-            object : PacketAdapter(plugin, PacketType.Play.Server.ENTITY_DESTROY) {
-                override fun onPacketSending(event: PacketEvent) {
-                    val entityIDs = event.packet.integerArrays.read(0)
-                    for (id in entityIDs) {
-                        val player = playerIds[id]
-                        if (player != null) {
-                            loadedPlayers[event.player]?.remove(player)
-                            hiddenPlayers[event.player]?.remove(player)
+        plugin.server.scheduler.scheduleSyncRepeatingTask(
+            plugin,
+            {
+                plugin.server.onlinePlayers.forEach { player ->
+                    loadedPlayerCache[player.uniqueId]?.forEach { loadedPlayer ->
+                        val key = Pair(loadedPlayer.uniqueId, player.uniqueId)
+                        val wasVisible = visiblePlayerCache.getOrDefault(key, true)
+                        val isVisible = loadedPlayer.isNameVisibleTo(player)
+                        if (isVisible != wasVisible) {
+                            loadedPlayer.setNameVisibility(player, isVisible)
+                            visiblePlayerCache[key] = isVisible
                         }
                     }
                 }
-            }
+            },
+            0L,
+            5L
         )
-    }
 
-    @EventHandler
-    fun onPlayerMove(event: PlayerMoveEvent) {
-        val eventPlayer = event.player
-        loadedPlayers[eventPlayer]?.forEach { player ->
-            if (player.isObscuredFrom(eventPlayer)) {
-                if (hiddenPlayers[eventPlayer]?.add(player) == true) {
-                    eventPlayer.updateNameFor(player, true)
+        protocolManager.apply {
+            addPacketListener(
+                object : PacketAdapter(plugin, PacketType.Play.Server.NAMED_ENTITY_SPAWN) {
+                    override fun onPacketSending(event: PacketEvent) {
+                        (event.packet.getEntityModifier(event).read(0) as? Player)?.let {
+                            loadedPlayerCache.getOrPut(event.player.uniqueId) { HashSet() }.add(it)
+                        }
+                    }
                 }
-            } else {
-                if (hiddenPlayers[eventPlayer]?.remove(player) == true) {
-                    eventPlayer.updateNameFor(player, false)
+            )
+
+            addPacketListener(
+                object : PacketAdapter(plugin, PacketType.Play.Server.ENTITY_DESTROY) {
+                    override fun onPacketSending(event: PacketEvent) {
+                        event.packet.intLists.read(0)?.forEach { entityId ->
+                            loadedPlayerCache[event.player.uniqueId]?.removeIf {
+                                it.entityId == entityId
+                            }
+                        }
+                    }
                 }
-            }
+            )
         }
     }
 
-    private fun Player.updateNameFor(player: Player, hidden: Boolean) {
-        val packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA)
-        packet.integers.write(0, this.entityId)
-        packet.watchableCollectionModifier.write(
-            0,
-            WrappedDataWatcher()
-                .apply {
-                    setObject(
-                        WrappedDataWatcher.WrappedDataWatcherObject(
-                            3,
-                            WrappedDataWatcher.Registry.get(Boolean::class.java)
-                        ),
-                        hidden
+    private fun Player.setNameVisibility(player: Player, visible: Boolean) {
+        val packet =
+            PacketContainer(PacketType.Play.Server.SCOREBOARD_TEAM).apply {
+                strings.write(0, entityId.toString())
+                integers.write(0, 0)
+                optionalStructures.read(0).get().apply {
+                    strings.write(0, if (visible) "always" else "never")
+                    getEnumModifier(
+                        ChatColor::class.java,
+                        MinecraftReflection.getMinecraftClass("EnumChatFormat")
                     )
+                        .write(0, ChatColor.WHITE)
                 }
-                .watchableObjects
-        )
+                getSpecificModifier(Collection::class.java).write(0, listOf(name))
+            }
         protocolManager.sendServerPacket(player, packet)
     }
 
-    private fun Player.isObscuredFrom(player: Player): Boolean {
-        val blockAbove = this.location.clone().add(0.0, 1.0, 0.0).block
-        return if (blockAbove.type.isOccluding) {
-            true
-        } else {
-            val center = blockAbove.location.add(0.5, 0.5, 0.5)
-            val result =
-                player.world.rayTraceBlocks(
-                    center,
-                    player.eyeLocation.toVector().subtract(center.toVector()).normalize(),
-                    center.distance(player.eyeLocation)
-                )
-            result?.hitBlock?.type?.isOccluding == true
+    private fun Player.isNameVisibleTo(player: Player): Boolean {
+        val nameTag = location.clone().add(0.0, 2.2, 0.0)
+        if (nameTag.block.type.isOccluding) return false
+        for (i in bresenham3D(nameTag, player.eyeLocation)) {
+            if (i.block.type.isOccluding) return false
         }
+        return true
     }
 }
