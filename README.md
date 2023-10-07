@@ -6,7 +6,7 @@ A Paper plugin for Minecraft that dynamically hides player name tags behind occl
 
 - **Minecraft Version**: 1.20.1
 - **Server Software**: [Paper](https://papermc.io/)
-- **Dependencies**: [ProtocolLib](https://www.spigotmc.org/resources/protocollib.1997/) 1.5.0 or higher
+- **Dependencies**: [ProtocolLib](https://www.spigotmc.org/resources/protocollib.1997/) 5.1.0 or higher
 
 ## Installation
 
