@@ -18,7 +18,7 @@ A Paper plugin for Minecraft that dynamically hides player name tags behind occl
 
 ## Usage
 
-This plugin starts working automatically and has no configuration or setup (yet).
+This plugin starts working automatically and has no configuration (yet).
 
 ## License
 
