@@ -8,14 +8,6 @@ A Paper plugin for Minecraft that dynamically hides player name tags behind occl
 - **Server Software**: [PaperMC](https://papermc.io/)
 - **Dependencies**: [ProtocolLib](https://www.spigotmc.org/resources/protocollib.1997/), [kotlin-stdlib](https://www.spigotmc.org/resources/kotlin-stdlib.80808/)
 
-## Installation
-
-1. Ensure you are running Minecraft version 1.20.1 with [Paper](https://papermc.io/) installed on your server.
-2. Make sure you have `ProtocolLib` and `kotlin-stdlib` installed.
-3. Download the latest version of `Obscure` from the releases section.
-4. Place the downloaded `.jar` file into your server's `plugins` directory.
-5. Restart your server.
-
 ## Note
 
 This plugin utilizes scoreboard team packets to conceal player names on the client side. While it won't remove players from server-assigned teams, it will override any visual changes applied by those teams.
