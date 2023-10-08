@@ -16,7 +16,7 @@ A Paper plugin for Minecraft that dynamically hides player name tags behind occl
 4. Place the downloaded `.jar` file into your server's `plugins` directory.
 5. Restart your server.
 
-## Notes
+## Note
 
 This plugin utilizes scoreboard team packets to conceal player names on the client side. While it won't remove players from server-assigned teams, it will override any visual changes applied by those teams.
 
